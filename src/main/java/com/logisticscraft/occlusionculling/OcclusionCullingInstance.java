@@ -30,11 +30,11 @@ public class OcclusionCullingInstance {
             int maxZ = MathUtilities.ceil(target.maxZ
                 - ((int) viewerPosition.z) + 0.25);
             int minX = MathUtilities.fastFloor(target.minX
-                - ((int) viewerPosition.x) + 0.25);
+                - ((int) viewerPosition.x) - 0.25);
             int minY = MathUtilities.fastFloor(target.minY
-                - ((int) viewerPosition.y) + 0.25);
+                - ((int) viewerPosition.y) - 0.25);
             int minZ = MathUtilities.fastFloor(target.minZ
-                - ((int) viewerPosition.z) + 0.25);
+                - ((int) viewerPosition.z) - 0.25);
 
             if (minX <= 0 && maxX > 0 && minY <= 0 && maxY >= 0 && minZ < 0
                 && maxZ >= 0) {
@@ -155,7 +155,7 @@ public class OcclusionCullingInstance {
         }
 
         provider.checkingPosition(targetPoints, targetSize, viewerPosition);
-        
+
         return isVisible(viewerPosition, targetPoints, targetSize);
     }
 
