@@ -22,7 +22,7 @@ public class AxisAlignedBB {
     public Vec3d getAABBMiddle(Vec3d blockLoc) {
         return new Vec3d(minX + (maxX - minX) / 2d,
             minY + (maxY - minY) / 2d,
-            minZ + (maxZ - minZ) / 2d).add(blockLoc);
+            minZ + (maxZ - minZ) / 2d).addMutable(blockLoc);
     }
 
     public Vec3d getMinVector() {

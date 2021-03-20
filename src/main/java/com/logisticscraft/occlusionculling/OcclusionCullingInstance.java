@@ -10,9 +10,9 @@ import java.util.Arrays;
 
 public class OcclusionCullingInstance {
 
-    private final Vec3d[] targets = new Vec3d[8];
-    private final DataProvider provider;
     private final int reach;
+    private final DataProvider provider;
+    private final Vec3d[] targetPoints = new Vec3d[8];
     private final OcclusionCache cache;
 
     public OcclusionCullingInstance(int maxDistance, DataProvider provider) {
@@ -21,22 +21,32 @@ public class OcclusionCullingInstance {
         this.cache = new ArrayOcclusionCache(reach);
     }
 
-    public boolean isAABBVisible(AxisAlignedBB aabb, Vec3d playerLoc) {
+    public boolean isAABBVisible(AxisAlignedBB target, Vec3d viewerPosition) {
         try {
-            int maxX = MathUtilities.ceil(aabb.maxX + 0.25);
-            int maxY = MathUtilities.ceil(aabb.maxY + 0.25);
-            int maxZ = MathUtilities.ceil(aabb.maxZ + 0.25);
-            int minX = MathUtilities.fastFloor(aabb.minX - 0.25);
-            int minY = MathUtilities.fastFloor(aabb.minY - 0.25);
-            int minZ = MathUtilities.fastFloor(aabb.minZ - 0.25);
+            int maxX = MathUtilities.ceil(target.maxX
+                - ((int) viewerPosition.x) + 0.25);
+            int maxY = MathUtilities.ceil(target.maxY
+                - ((int) viewerPosition.y) + 0.25);
+            int maxZ = MathUtilities.ceil(target.maxZ
+                - ((int) viewerPosition.z) + 0.25);
+            int minX = MathUtilities.fastFloor(target.minX
+                - ((int) viewerPosition.x) + 0.25);
+            int minY = MathUtilities.fastFloor(target.minY
+                - ((int) viewerPosition.y) + 0.25);
+            int minZ = MathUtilities.fastFloor(target.minZ
+                - ((int) viewerPosition.z) + 0.25);
+
+            if (minX <= 0 && maxX > 0 && minY <= 0 && maxY >= 0 && minZ < 0
+                && maxZ >= 0) {
+                return true; // We are inside of the AABB, don't cull
+            }
 
             Relative relX = Relative.from(minX, maxX);
             Relative relY = Relative.from(minY, maxY);
             Relative relZ = Relative.from(minZ + 1, maxZ + 1);
-            if (minX <= 0 && maxX > 0 && minY <= 0 && maxY >= 0 && minZ < 0 && maxZ >= 0) {
-                return true; // We are inside of the AABB, don't cull
-            }
-            int blockCount = (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
+
+            int blockCount = (maxX - minX + 1) * (maxY - minY + 1)
+                * (maxZ - minZ + 1);
             Vec3d[] blocks = new Vec3d[blockCount];
             boolean[][] faceEdgeData = new boolean[blockCount][];
             int slot = 0;
@@ -49,87 +59,102 @@ public class OcclusionCullingInstance {
                     onFaceEdge[2] = y == minY;
                     onFaceEdge[3] = y == maxY - 1;
                     for (int z = minZ; z < maxZ; z++) {
-                        int cVal = getCacheValue(x, y, z);
-                        if (cVal == 1) {
+                        int cachedValue = getCacheValue(x, y, z);
+
+                        if (cachedValue == 1) {
+                            // non-occluding
                             return true;
                         }
-                        if (cVal == 0) {
-                            onFaceEdge[4] = z == minZ;
-                            onFaceEdge[5] = z == maxZ - 1;
-                            if ((onFaceEdge[0] && relX == Relative.POSITIVE)
-                                || (onFaceEdge[1] && relX == Relative.NEGATIVE)
-                                || (onFaceEdge[2] && relY == Relative.POSITIVE)
-                                || (onFaceEdge[3] && relY == Relative.NEGATIVE)
-                                || (onFaceEdge[4] && relZ == Relative.POSITIVE)
-                                || (onFaceEdge[5] && relZ == Relative.NEGATIVE)) {
-                                blocks[slot] = new Vec3d(x, y, z);
-                                faceEdgeData[slot] = Arrays.copyOf(onFaceEdge, 6);
-                                slot++;
-                            }
+
+                        if (cachedValue != 0) {
+                            // cached
+                            continue;
+                        }
+
+                        // no cached value
+                        onFaceEdge[4] = z == minZ;
+                        onFaceEdge[5] = z == maxZ - 1;
+                        if ((onFaceEdge[0] && relX == Relative.POSITIVE)
+                            || (onFaceEdge[1] && relX == Relative.NEGATIVE)
+                            || (onFaceEdge[2] && relY == Relative.POSITIVE)
+                            || (onFaceEdge[3] && relY == Relative.NEGATIVE)
+                            || (onFaceEdge[4] && relZ == Relative.POSITIVE)
+                            || (onFaceEdge[5] && relZ == Relative.NEGATIVE)) {
+                            blocks[slot] = new Vec3d(x, y, z);
+                            faceEdgeData[slot] = Arrays.copyOf(onFaceEdge, 6);
+                            slot++;
                         }
                     }
                 }
             }
+
             for (int i = 0; i < slot; i++) {
-                if (isVoxelVisible(playerLoc, blocks[i], faceEdgeData[i])) {
+                if (isVoxelVisible(viewerPosition, blocks[i], faceEdgeData[i])) {
                     return true;
                 }
             }
-            return false;
 
-        } catch (Exception exception) {
-            exception.printStackTrace();
+            return false;
+        } catch (Throwable t) {
+            // Failsafe
+            t.printStackTrace();
         }
         return true;
     }
 
-    // -1 = invalid location, 0 = not checked yet, 1 = visible, 2 = blocked
+    // -1 = invalid location, 0 = not checked yet, 1 = visible, 2 = occluding
     private int getCacheValue(int x, int y, int z) {
-        if (Math.abs(x) > reach - 2 || Math.abs(y) > reach - 2 || Math.abs(z) > reach - 2)
+        if (Math.abs(x) > reach - 2 || Math.abs(y) > reach - 2
+            || Math.abs(z) > reach - 2) {
             return -1;
+        }
 
         // check if target is already known
         return cache.getState(x + reach, y + reach, z + reach);
-
     }
 
-    private boolean isVoxelVisible(Vec3d playerLoc, Vec3d position, boolean[] faceEdgeData) {
+    private boolean isVoxelVisible(Vec3d viewerPosition, Vec3d position,
+                                   boolean[] faceEdgeData) {
         int targetSize = 0;
+
         // boolean onMinX = faceEdgeData[0];
         // boolean onMaxX = faceEdgeData[1];
         // boolean onMinY = faceEdgeData[2];
         // boolean onMaxY = faceEdgeData[3];
         // boolean onMinZ = faceEdgeData[4];
         // boolean onMaxZ = faceEdgeData[5];
+
         // main points for all faces
-        position = position.add(0.05, 0.05, 0.05);
+        position = position.add(0.05, 0.05, 0.05); // TODO: this is ugly
         if (faceEdgeData[0] || faceEdgeData[4] || faceEdgeData[2]) {
-            targets[targetSize++] = position;
+            targetPoints[targetSize++] = position;
         }
         if (faceEdgeData[1]) {
-            targets[targetSize++] = position.add(0.90, 0, 0);
+            targetPoints[targetSize++] = position.add(0.90, 0, 0);
         }
         if (faceEdgeData[3]) {
-            targets[targetSize++] = position.add(0, 0.90, 0);
+            targetPoints[targetSize++] = position.add(0, 0.90, 0);
         }
         if (faceEdgeData[5]) {
-            targets[targetSize++] = position.add(0, 0, 0.90);
+            targetPoints[targetSize++] = position.add(0, 0, 0.90);
         }
         // Extra corner points
-        if ((faceEdgeData[4] && faceEdgeData[1] && faceEdgeData[3]) || (faceEdgeData[1] && faceEdgeData[3])) {
-            targets[targetSize++] = position.add(0.90, 0.90, 0);
+        if ((faceEdgeData[4] && faceEdgeData[1] && faceEdgeData[3])
+            || (faceEdgeData[1] && faceEdgeData[3])) {
+            targetPoints[targetSize++] = position.add(0.90, 0.90, 0);
         }
-        if ((faceEdgeData[0] && faceEdgeData[5] && faceEdgeData[3]) || (faceEdgeData[5] && faceEdgeData[3])) {
-            targets[targetSize++] = position.add(0, 0.90, 0.90);
+        if ((faceEdgeData[0] && faceEdgeData[5] && faceEdgeData[3])
+            || (faceEdgeData[5] && faceEdgeData[3])) {
+            targetPoints[targetSize++] = position.add(0, 0.90, 0.90);
         }
         if (faceEdgeData[5] && faceEdgeData[1]) {
-            targets[targetSize++] = position.add(0.90, 0, 0.90);
+            targetPoints[targetSize++] = position.add(0.90, 0, 0.90);
         }
         if (faceEdgeData[1] && faceEdgeData[3] && faceEdgeData[5]) {
-            targets[targetSize++] = position.add(0.90, 0.90, 0.90);
+            targetPoints[targetSize++] = position.add(0.90, 0.90, 0.90);
         }
 
-        return isVisible(playerLoc, targets, targetSize);
+        return isVisible(viewerPosition, targetPoints, targetSize);
     }
 
 
@@ -141,29 +166,23 @@ public class OcclusionCullingInstance {
      * Caching assumes that all Vec3d's are inside the same block
      */
     private boolean isVisible(Vec3d start, Vec3d[] targets, int size) {
+        // start cell coordinate
+        int x = MathUtilities.floor(start.x);
+        int y = MathUtilities.floor(start.y);
+        int z = MathUtilities.floor(start.z);
 
         for (int v = 0; v < size; v++) {
-            ///raycasting target
+            // ray-casting target
             Vec3d target = targets[v];
 
-            // coordinates of start and target point
-            double startX = start.getX();
-            double startY = start.getY();
-            double startZ = start.getZ();
-
-            double relativeX = startX + target.getX();
-            double relativeY = startY + target.getY();
-            double relativeZ = startZ + target.getZ();
+            double relativeX = start.x + target.getX();
+            double relativeY = start.y + target.getY();
+            double relativeZ = start.z + target.getZ();
 
             // horizontal and vertical cell amount spanned
-            double dimensionX = Math.abs(relativeX - startX);
-            double dimensionY = Math.abs(relativeY - startY);
-            double dimensionZ = Math.abs(relativeZ - startZ);
-
-            // start cell coordinate
-            int x = MathUtilities.floor(startX);
-            int y = MathUtilities.floor(startY);
-            int z = MathUtilities.floor(startZ);
+            double dimensionX = Math.abs(relativeX - start.x);
+            double dimensionY = Math.abs(relativeY - start.y);
+            double dimensionZ = Math.abs(relativeZ - start.z);
 
             // distance between horizontal intersection points with cell border as a
             // fraction of the total Vec3d length
@@ -187,11 +206,12 @@ public class OcclusionCullingInstance {
             if (dimensionX == 0f) {
                 x_inc = 0;
                 t_next_x = dimFracX; // don't increment horizontally because the Vec3d is perfectly vertical
-            } else if (relativeX > startX) {
+            } else if (relativeX > start.x) {
                 x_inc = 1; // target point is horizontally greater than starting point so increment every
                 // step by 1
                 intersectCount += MathUtilities.floor(relativeX) - x; // increment total amount of intersecting cells
-                t_next_x = (float) ((MathUtilities.floor(startX) + 1 - startX) * dimFracX); // calculate the next horizontal
+                t_next_x = (float) ((MathUtilities.floor(start.x) + 1 - start.x)
+                    * dimFracX); // calculate the next horizontal
                 // intersection
                 // point based on the position inside
                 // the first cell
@@ -199,7 +219,8 @@ public class OcclusionCullingInstance {
                 x_inc = -1; // target point is horizontally smaller than starting point so reduce every step
                 // by 1
                 intersectCount += x - MathUtilities.floor(relativeX); // increment total amount of intersecting cells
-                t_next_x = (float) ((startX - MathUtilities.floor(startX)) * dimFracX); // calculate the next horizontal
+                t_next_x = (float) ((start.x - MathUtilities.floor(start.x))
+                    * dimFracX); // calculate the next horizontal
                 // intersection point
                 // based on the position inside
                 // the first cell
@@ -208,11 +229,12 @@ public class OcclusionCullingInstance {
             if (dimensionY == 0f) {
                 y_inc = 0;
                 t_next_y = dimFracY; // don't increment vertically because the Vec3d is perfectly horizontal
-            } else if (relativeY > startY) {
+            } else if (relativeY > start.y) {
                 y_inc = 1; // target point is vertically greater than starting point so increment every
                 // step by 1
                 intersectCount += MathUtilities.floor(relativeY) - y; // increment total amount of intersecting cells
-                t_next_y = (float) ((MathUtilities.floor(startY) + 1 - startY) * dimFracY); // calculate the next vertical
+                t_next_y = (float) ((MathUtilities.floor(start.y) + 1 - start.y)
+                    * dimFracY); // calculate the next vertical
                 // intersection
                 // point based on the position inside
                 // the first cell
@@ -220,7 +242,8 @@ public class OcclusionCullingInstance {
                 y_inc = -1; // target point is vertically smaller than starting point so reduce every step
                 // by 1
                 intersectCount += y - MathUtilities.floor(relativeY); // increment total amount of intersecting cells
-                t_next_y = (float) ((startY - MathUtilities.floor(startY)) * dimFracY); // calculate the next vertical intersection
+                t_next_y = (float) ((start.y - MathUtilities.floor(start.y))
+                    * dimFracY); // calculate the next vertical intersection
                 // point
                 // based on the position inside
                 // the first cell
@@ -229,11 +252,12 @@ public class OcclusionCullingInstance {
             if (dimensionZ == 0f) {
                 z_inc = 0;
                 t_next_z = dimFracZ; // don't increment vertically because the Vec3d is perfectly horizontal
-            } else if (relativeZ > startZ) {
+            } else if (relativeZ > start.z) {
                 z_inc = 1; // target point is vertically greater than starting point so increment every
                 // step by 1
                 intersectCount += MathUtilities.floor(relativeZ) - z; // increment total amount of intersecting cells
-                t_next_z = (float) ((MathUtilities.floor(startZ) + 1 - startZ) * dimFracZ); // calculate the next vertical
+                t_next_z = (float) ((MathUtilities.floor(start.z) + 1 - start.z)
+                    * dimFracZ); // calculate the next vertical
                 // intersection
                 // point based on the position inside
                 // the first cell
@@ -241,14 +265,16 @@ public class OcclusionCullingInstance {
                 z_inc = -1; // target point is vertically smaller than starting point so reduce every step
                 // by 1
                 intersectCount += z - MathUtilities.floor(relativeZ); // increment total amount of intersecting cells
-                t_next_z = (float) ((startZ - MathUtilities.floor(startZ)) * dimFracZ); // calculate the next vertical intersection
+                t_next_z = (float) ((start.z - MathUtilities.floor(start.z))
+                    * dimFracZ); // calculate the next vertical intersection
                 // point
                 // based on the position inside
                 // the first cell
             }
 
-            boolean finished = stepRay(start, startX, startY, startZ, x, y, z, dimFracX, dimFracY, dimFracZ, intersectCount, x_inc, y_inc, z_inc,
-                t_next_y, t_next_x, t_next_z);
+            boolean finished = stepRay(start, x, y, z,
+                dimFracX, dimFracY, dimFracZ, intersectCount, x_inc, y_inc,
+                z_inc, t_next_y, t_next_x, t_next_z);
             provider.cleanup();
             if (finished) {
                 //cacheResult(targets[0], true);
@@ -259,58 +285,46 @@ public class OcclusionCullingInstance {
         return false;
     }
 
-    // TODO not working, causing visual issues
-	/*private void cacheResult(Vec3d vector, boolean result) {
-		int cx = MathUtil.fastFloor(vector.x + reach);
-		int cy = MathUtil.fastFloor(vector.y + reach);
-		int cz = MathUtil.fastFloor(vector.z + reach);
-		if (result) {
-			cache.setVisible(cx, cy, cz);
-		} else {
-			cache.setHidden(cx, cy, cz);
-		}
-	}*/
-
-    private boolean stepRay(Vec3d start, double startX, double startY, double startZ, int currentX, int currentY, int currentZ, double distInX,
-                            double distInY, double distInZ, int n, int x_inc, int y_inc, int z_inc, double t_next_y, double t_next_x,
+    private boolean stepRay(Vec3d start, int currentX, int currentY,
+                            int currentZ, double distInX, double distInY,
+                            double distInZ, int n, int x_inc, int y_inc,
+                            int z_inc, double t_next_y, double t_next_x,
                             double t_next_z) {
+        boolean first = true; // Load the first chunk even if we are in chunk 0,0
         int chunkX = 0;
         int chunkZ = 0;
 
         // iterate through all intersecting cells (n times)
         for (; n > 1; n--) { // n-1 times because we don't want to check the last block
             // towards - where from
-            int curToStartX = MathUtilities.fastFloor((startX - currentX) + reach);
-            int curToStartY = MathUtilities.fastFloor((startY - currentY) + reach);
-            int curToStartZ = MathUtilities.fastFloor((startZ - currentZ) + reach);
+            int curToStartX = MathUtilities.fastFloor((start.x - currentX)
+                + reach);
+            int curToStartY = MathUtilities.fastFloor((start.y - currentY)
+                + reach);
+            int curToStartZ = MathUtilities.fastFloor((start.z - currentZ)
+                + reach);
 
+            // get cached value, 0 means uncached (default)
             int cVal = cache.getState(curToStartX, curToStartY, curToStartZ);
+
             if (cVal == 2) {
+                // block cached as occluding, stop ray
                 return false;
             }
+
             if (cVal == 0) {
                 // save current cell
-                chunkX = currentX >> 4;
-                chunkZ = currentZ >> 4;
-                if (!provider.prepareChunk(chunkX, chunkZ)) { // Chunk not ready
-                    return false;
-                }
 
-                int relativeX = currentX % 16;
-                if (relativeX < 0) {
-                    relativeX = 16 + relativeX;
-                }
-                int relativeZ = currentZ % 16;
-                if (relativeZ < 0) {
-                    relativeZ = 16 + relativeZ;
-                }
-                if (relativeX < 0) {
-                    cache.setLastHidden();
-                    return false;
-                }
-                if (relativeZ < 0) {
-                    cache.setLastHidden();
-                    return false;
+                int currentChunkX = currentX >> 4;
+                int currentChunkZ = currentZ >> 4;
+                if (first || currentChunkX != chunkX || currentChunkZ != chunkZ) {
+                    first = false;
+
+                    chunkX = currentChunkX;
+                    chunkZ = currentChunkZ;
+                    if (!provider.prepareChunk(chunkX, chunkZ)) { // Chunk not ready
+                        return false;
+                    }
                 }
 
                 if (provider.isOpaqueFullCube(currentX, currentY, currentZ)) {
@@ -338,6 +352,22 @@ public class OcclusionCullingInstance {
         return true;
     }
 
+    // FIXME: not working, causing visual issues
+    private void cacheResult(Vec3d vector, boolean result) {
+        int cx = MathUtilities.fastFloor(vector.x + reach);
+        int cy = MathUtilities.fastFloor(vector.y + reach);
+        int cz = MathUtilities.fastFloor(vector.z + reach);
+        if (result) {
+            cache.setVisible(cx, cy, cz);
+        } else {
+            cache.setHidden(cx, cy, cz);
+        }
+    }
+
+    public void resetCache() {
+        this.cache.resetCache();
+    }
+
     private enum Relative {
         INSIDE, POSITIVE, NEGATIVE;
 
@@ -349,10 +379,6 @@ public class OcclusionCullingInstance {
             }
             return INSIDE;
         }
-    }
-
-    public void resetCache() {
-        this.cache.resetCache();
     }
 
 }
