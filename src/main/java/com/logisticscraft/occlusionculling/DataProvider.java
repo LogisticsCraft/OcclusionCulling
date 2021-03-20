@@ -1,5 +1,7 @@
 package com.logisticscraft.occlusionculling;
 
+import com.logisticscraft.occlusionculling.util.Vec3d;
+
 public interface DataProvider {
 
     /**
@@ -24,5 +26,7 @@ public interface DataProvider {
     boolean isOpaqueFullCube(int x, int y, int z);
 
     void cleanup();
+    
+    void checkingPosition(Vec3d[] targetPoints, int size, Vec3d viewerPosition);
 
 }

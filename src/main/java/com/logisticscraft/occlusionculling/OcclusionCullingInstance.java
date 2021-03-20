@@ -154,6 +154,8 @@ public class OcclusionCullingInstance {
             targetPoints[targetSize++] = position.add(0.90, 0.90, 0.90);
         }
 
+        provider.checkingPosition(targetPoints, targetSize, viewerPosition);
+        
         return isVisible(viewerPosition, targetPoints, targetSize);
     }
 
