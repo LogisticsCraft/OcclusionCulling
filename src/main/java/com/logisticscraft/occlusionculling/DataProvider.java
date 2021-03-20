@@ -25,8 +25,10 @@ public interface DataProvider {
      */
     boolean isOpaqueFullCube(int x, int y, int z);
 
-    void cleanup();
-    
-    void checkingPosition(Vec3d[] targetPoints, int size, Vec3d viewerPosition);
+    default void cleanup() {
+    }
+
+    default void checkingPosition(Vec3d[] targetPoints, int size, Vec3d viewerPosition) {
+    }
 
 }
