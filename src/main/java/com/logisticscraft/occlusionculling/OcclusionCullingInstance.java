@@ -290,10 +290,6 @@ public class OcclusionCullingInstance {
                             double distInZ, int n, int x_inc, int y_inc,
                             int z_inc, double t_next_y, double t_next_x,
                             double t_next_z) {
-        boolean first = true; // Load the first chunk even if we are in chunk 0,0
-        int chunkX = 0;
-        int chunkZ = 0;
-
         // iterate through all intersecting cells (n times)
         for (; n > 1; n--) { // n-1 times because we don't want to check the last block
             // towards - where from
@@ -314,17 +310,10 @@ public class OcclusionCullingInstance {
 
             if (cVal == 0) {
                 // save current cell
-
-                int currentChunkX = currentX >> 4;
-                int currentChunkZ = currentZ >> 4;
-                if (first || currentChunkX != chunkX || currentChunkZ != chunkZ) {
-                    first = false;
-
-                    chunkX = currentChunkX;
-                    chunkZ = currentChunkZ;
-                    if (!provider.prepareChunk(chunkX, chunkZ)) { // Chunk not ready
-                        return false;
-                    }
+                int chunkX = currentX >> 4;
+                int chunkZ = currentZ >> 4;
+                if (!provider.prepareChunk(chunkX, chunkZ)) { // Chunk not ready
+                    return false;
                 }
 
                 if (provider.isOpaqueFullCube(currentX, currentY, currentZ)) {
