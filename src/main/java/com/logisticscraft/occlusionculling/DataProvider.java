@@ -11,7 +11,7 @@ public interface DataProvider {
      * @param chunkZ
      * @return
      */
-    public boolean prepareChunk(int chunkX, int chunkZ);
+    boolean prepareChunk(int chunkX, int chunkZ);
 
     /**
      * Location is inside the chunk.
@@ -21,8 +21,8 @@ public interface DataProvider {
      * @param z
      * @return
      */
-    public boolean isOpaqueFullCube(int x, int y, int z);
+    boolean isOpaqueFullCube(int x, int y, int z);
 
-    public void cleanup();
+    void cleanup();
 
 }

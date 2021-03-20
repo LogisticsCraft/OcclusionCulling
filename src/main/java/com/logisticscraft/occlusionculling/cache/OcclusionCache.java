@@ -1,6 +1,6 @@
-package com.logisticscraft.occlusionculling;
+package com.logisticscraft.occlusionculling.cache;
 
-public interface Cache {
+public interface OcclusionCache {
 
     void resetCache();
 

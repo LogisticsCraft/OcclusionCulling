@@ -1,9 +1,12 @@
-package com.logisticscraft.occlusionculling;
+package com.logisticscraft.occlusionculling.util;
 
 /**
  * Contains MathHelper methods
  */
-public class MathUtil {
+public final class MathUtilities {
+
+    private MathUtilities() {
+    }
 
     public static int floor(double d) {
         int i = (int) d;

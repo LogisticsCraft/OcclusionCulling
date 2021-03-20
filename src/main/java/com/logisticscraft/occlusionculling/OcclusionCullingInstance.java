@@ -1,5 +1,11 @@
 package com.logisticscraft.occlusionculling;
 
+import com.logisticscraft.occlusionculling.cache.ArrayOcclusionCache;
+import com.logisticscraft.occlusionculling.cache.OcclusionCache;
+import com.logisticscraft.occlusionculling.util.AxisAlignedBB;
+import com.logisticscraft.occlusionculling.util.MathUtilities;
+import com.logisticscraft.occlusionculling.util.Vec3d;
+
 import java.util.Arrays;
 
 public class OcclusionCullingInstance {
@@ -7,22 +13,22 @@ public class OcclusionCullingInstance {
     private final Vec3d[] targets = new Vec3d[8];
     private final DataProvider provider;
     private final int reach;
-    private final Cache cache;
+    private final OcclusionCache cache;
 
     public OcclusionCullingInstance(int maxDistance, DataProvider provider) {
         this.reach = maxDistance;
         this.provider = provider;
-        this.cache = new ArrayCache(reach);
+        this.cache = new ArrayOcclusionCache(reach);
     }
 
     public boolean isAABBVisible(AxisAlignedBB aabb, Vec3d playerLoc) {
         try {
-            int maxX = MathUtil.ceil(aabb.maxx + 0.25);
-            int maxY = MathUtil.ceil(aabb.maxy + 0.25);
-            int maxZ = MathUtil.ceil(aabb.maxz + 0.25);
-            int minX = MathUtil.fastFloor(aabb.minx - 0.25);
-            int minY = MathUtil.fastFloor(aabb.miny - 0.25);
-            int minZ = MathUtil.fastFloor(aabb.minz - 0.25);
+            int maxX = MathUtilities.ceil(aabb.maxX + 0.25);
+            int maxY = MathUtilities.ceil(aabb.maxY + 0.25);
+            int maxZ = MathUtilities.ceil(aabb.maxZ + 0.25);
+            int minX = MathUtilities.fastFloor(aabb.minX - 0.25);
+            int minY = MathUtilities.fastFloor(aabb.minY - 0.25);
+            int minZ = MathUtilities.fastFloor(aabb.minZ - 0.25);
 
             Relative relX = Relative.from(minX, maxX);
             Relative relY = Relative.from(minY, maxY);
@@ -155,9 +161,9 @@ public class OcclusionCullingInstance {
             double dimensionZ = Math.abs(relativeZ - startZ);
 
             // start cell coordinate
-            int x = MathUtil.floor(startX);
-            int y = MathUtil.floor(startY);
-            int z = MathUtil.floor(startZ);
+            int x = MathUtilities.floor(startX);
+            int y = MathUtilities.floor(startY);
+            int z = MathUtilities.floor(startZ);
 
             // distance between horizontal intersection points with cell border as a
             // fraction of the total Vec3d length
@@ -184,16 +190,16 @@ public class OcclusionCullingInstance {
             } else if (relativeX > startX) {
                 x_inc = 1; // target point is horizontally greater than starting point so increment every
                 // step by 1
-                intersectCount += MathUtil.floor(relativeX) - x; // increment total amount of intersecting cells
-                t_next_x = (float) ((MathUtil.floor(startX) + 1 - startX) * dimFracX); // calculate the next horizontal
+                intersectCount += MathUtilities.floor(relativeX) - x; // increment total amount of intersecting cells
+                t_next_x = (float) ((MathUtilities.floor(startX) + 1 - startX) * dimFracX); // calculate the next horizontal
                 // intersection
                 // point based on the position inside
                 // the first cell
             } else {
                 x_inc = -1; // target point is horizontally smaller than starting point so reduce every step
                 // by 1
-                intersectCount += x - MathUtil.floor(relativeX); // increment total amount of intersecting cells
-                t_next_x = (float) ((startX - MathUtil.floor(startX)) * dimFracX); // calculate the next horizontal
+                intersectCount += x - MathUtilities.floor(relativeX); // increment total amount of intersecting cells
+                t_next_x = (float) ((startX - MathUtilities.floor(startX)) * dimFracX); // calculate the next horizontal
                 // intersection point
                 // based on the position inside
                 // the first cell
@@ -205,16 +211,16 @@ public class OcclusionCullingInstance {
             } else if (relativeY > startY) {
                 y_inc = 1; // target point is vertically greater than starting point so increment every
                 // step by 1
-                intersectCount += MathUtil.floor(relativeY) - y; // increment total amount of intersecting cells
-                t_next_y = (float) ((MathUtil.floor(startY) + 1 - startY) * dimFracY); // calculate the next vertical
+                intersectCount += MathUtilities.floor(relativeY) - y; // increment total amount of intersecting cells
+                t_next_y = (float) ((MathUtilities.floor(startY) + 1 - startY) * dimFracY); // calculate the next vertical
                 // intersection
                 // point based on the position inside
                 // the first cell
             } else {
                 y_inc = -1; // target point is vertically smaller than starting point so reduce every step
                 // by 1
-                intersectCount += y - MathUtil.floor(relativeY); // increment total amount of intersecting cells
-                t_next_y = (float) ((startY - MathUtil.floor(startY)) * dimFracY); // calculate the next vertical intersection
+                intersectCount += y - MathUtilities.floor(relativeY); // increment total amount of intersecting cells
+                t_next_y = (float) ((startY - MathUtilities.floor(startY)) * dimFracY); // calculate the next vertical intersection
                 // point
                 // based on the position inside
                 // the first cell
@@ -226,16 +232,16 @@ public class OcclusionCullingInstance {
             } else if (relativeZ > startZ) {
                 z_inc = 1; // target point is vertically greater than starting point so increment every
                 // step by 1
-                intersectCount += MathUtil.floor(relativeZ) - z; // increment total amount of intersecting cells
-                t_next_z = (float) ((MathUtil.floor(startZ) + 1 - startZ) * dimFracZ); // calculate the next vertical
+                intersectCount += MathUtilities.floor(relativeZ) - z; // increment total amount of intersecting cells
+                t_next_z = (float) ((MathUtilities.floor(startZ) + 1 - startZ) * dimFracZ); // calculate the next vertical
                 // intersection
                 // point based on the position inside
                 // the first cell
             } else {
                 z_inc = -1; // target point is vertically smaller than starting point so reduce every step
                 // by 1
-                intersectCount += z - MathUtil.floor(relativeZ); // increment total amount of intersecting cells
-                t_next_z = (float) ((startZ - MathUtil.floor(startZ)) * dimFracZ); // calculate the next vertical intersection
+                intersectCount += z - MathUtilities.floor(relativeZ); // increment total amount of intersecting cells
+                t_next_z = (float) ((startZ - MathUtilities.floor(startZ)) * dimFracZ); // calculate the next vertical intersection
                 // point
                 // based on the position inside
                 // the first cell
@@ -274,9 +280,9 @@ public class OcclusionCullingInstance {
         // iterate through all intersecting cells (n times)
         for (; n > 1; n--) { // n-1 times because we don't want to check the last block
             // towards - where from
-            int curToStartX = MathUtil.fastFloor((startX - currentX) + reach);
-            int curToStartY = MathUtil.fastFloor((startY - currentY) + reach);
-            int curToStartZ = MathUtil.fastFloor((startZ - currentZ) + reach);
+            int curToStartX = MathUtilities.fastFloor((startX - currentX) + reach);
+            int curToStartY = MathUtilities.fastFloor((startY - currentY) + reach);
+            int curToStartZ = MathUtilities.fastFloor((startZ - currentZ) + reach);
 
             int cVal = cache.getState(curToStartX, curToStartY, curToStartZ);
             if (cVal == 2) {
