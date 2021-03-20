@@ -24,17 +24,17 @@ public class OcclusionCullingInstance {
     public boolean isAABBVisible(AxisAlignedBB target, Vec3d viewerPosition) {
         try {
             int maxX = MathUtilities.ceil(target.maxX
-                - ((int) viewerPosition.x) + 0.25);
+                - ((int) viewerPosition.x) + 0.5);
             int maxY = MathUtilities.ceil(target.maxY
-                - ((int) viewerPosition.y) + 0.25);
+                - ((int) viewerPosition.y) + 0.5);
             int maxZ = MathUtilities.ceil(target.maxZ
-                - ((int) viewerPosition.z) + 0.25);
+                - ((int) viewerPosition.z) + 0.5);
             int minX = MathUtilities.fastFloor(target.minX
-                - ((int) viewerPosition.x) - 0.25);
+                - ((int) viewerPosition.x) - 0.5);
             int minY = MathUtilities.fastFloor(target.minY
-                - ((int) viewerPosition.y) - 0.25);
+                - ((int) viewerPosition.y) - 0.5);
             int minZ = MathUtilities.fastFloor(target.minZ
-                - ((int) viewerPosition.z) - 0.25);
+                - ((int) viewerPosition.z) - 0.5);
 
             if (minX <= 0 && maxX > 0 && minY <= 0 && maxY >= 0 && minZ < 0
                 && maxZ >= 0) {
