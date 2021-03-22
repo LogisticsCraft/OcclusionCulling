@@ -279,11 +279,11 @@ public class OcclusionCullingInstance {
                 z_inc, t_next_y, t_next_x, t_next_z);
             provider.cleanup();
             if (finished) {
-                //cacheResult(targets[0], true);
+                cacheResult(targets[0], true);
                 return true;
             }
         }
-        //cacheResult(targets[0], false);
+        cacheResult(targets[0], false);
         return false;
     }
 
@@ -295,11 +295,11 @@ public class OcclusionCullingInstance {
         // iterate through all intersecting cells (n times)
         for (; n > 1; n--) { // n-1 times because we don't want to check the last block
             // towards - where from
-            int curToStartX = MathUtilities.fastFloor((start.x - currentX)
+            int curToStartX = MathUtilities.fastFloor((currentX - start.x)
                 + reach);
-            int curToStartY = MathUtilities.fastFloor((start.y - currentY)
+            int curToStartY = MathUtilities.fastFloor((currentY - start.y)
                 + reach);
-            int curToStartZ = MathUtilities.fastFloor((start.z - currentZ)
+            int curToStartZ = MathUtilities.fastFloor((currentZ - start.z)
                 + reach);
 
             // get cached value, 0 means uncached (default)
@@ -343,7 +343,6 @@ public class OcclusionCullingInstance {
         return true;
     }
 
-    // FIXME: not working, causing visual issues
     private void cacheResult(Vec3d vector, boolean result) {
         int cx = MathUtilities.fastFloor(vector.x + reach);
         int cy = MathUtilities.fastFloor(vector.y + reach);
