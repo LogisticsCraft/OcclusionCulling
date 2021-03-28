@@ -1,39 +1,46 @@
 package com.logisticscraft.occlusionculling;
 
+import java.util.BitSet;
+
 import com.logisticscraft.occlusionculling.cache.ArrayOcclusionCache;
 import com.logisticscraft.occlusionculling.cache.OcclusionCache;
-import com.logisticscraft.occlusionculling.util.AxisAlignedBB;
 import com.logisticscraft.occlusionculling.util.MathUtilities;
 import com.logisticscraft.occlusionculling.util.Vec3d;
-
-import java.util.Arrays;
 
 public class OcclusionCullingInstance {
 
     private final int reach;
     private final DataProvider provider;
-    private final Vec3d[] targetPoints = new Vec3d[8];
     private final OcclusionCache cache;
+    
+    // Reused allocated data structures
+    private final BitSet skipList = new BitSet(); // Grows bigger in case some mod introduces giant hitboxes
+    private final boolean[] onFaceEdge = new boolean[6];
+    private final Vec3d[] targetPoints = new Vec3d[8];
+    private final Vec3d targetPos = new Vec3d(0, 0, 0);
 
     public OcclusionCullingInstance(int maxDistance, DataProvider provider) {
         this.reach = maxDistance;
         this.provider = provider;
         this.cache = new ArrayOcclusionCache(reach);
+        for(int i = 0; i < targetPoints.length; i++) {
+            targetPoints[i] = new Vec3d(0, 0, 0);
+        }
     }
 
-    public boolean isAABBVisible(AxisAlignedBB target, Vec3d viewerPosition) {
+    public boolean isAABBVisible(Vec3d aabbMin, Vec3d aabbMax, Vec3d viewerPosition) {
         try {
-            int maxX = MathUtilities.ceil(target.maxX
+            int maxX = MathUtilities.ceil(aabbMax.x
                 - ((int) viewerPosition.x) + 0.5);
-            int maxY = MathUtilities.ceil(target.maxY
+            int maxY = MathUtilities.ceil(aabbMax.y
                 - ((int) viewerPosition.y) + 0.5);
-            int maxZ = MathUtilities.ceil(target.maxZ
+            int maxZ = MathUtilities.ceil(aabbMax.z
                 - ((int) viewerPosition.z) + 0.5);
-            int minX = MathUtilities.fastFloor(target.minX
+            int minX = MathUtilities.fastFloor(aabbMin.x
                 - ((int) viewerPosition.x) - 0.5);
-            int minY = MathUtilities.fastFloor(target.minY
+            int minY = MathUtilities.fastFloor(aabbMin.y
                 - ((int) viewerPosition.y) - 0.5);
-            int minZ = MathUtilities.fastFloor(target.minZ
+            int minZ = MathUtilities.fastFloor(aabbMin.z
                 - ((int) viewerPosition.z) - 0.5);
 
             if (minX <= 0 && maxX > 0 && minY <= 0 && maxY >= 0 && minZ < 0
@@ -45,19 +52,12 @@ public class OcclusionCullingInstance {
             Relative relY = Relative.from(minY, maxY);
             Relative relZ = Relative.from(minZ + 1, maxZ + 1);
 
-            int blockCount = (maxX - minX + 1) * (maxY - minY + 1)
-                * (maxZ - minZ + 1);
-            Vec3d[] blocks = new Vec3d[blockCount];
-            boolean[][] faceEdgeData = new boolean[blockCount][];
-            int slot = 0;
+            skipList.clear();
 
-            boolean[] onFaceEdge = new boolean[6];
+            // Just check the cache first
+            int id = 0;
             for (int x = minX; x < maxX; x++) {
-                onFaceEdge[0] = x == minX;
-                onFaceEdge[1] = x == maxX - 1;
                 for (int y = minY; y < maxY; y++) {
-                    onFaceEdge[2] = y == minY;
-                    onFaceEdge[3] = y == maxY - 1;
                     for (int z = minZ; z < maxZ; z++) {
                         int cachedValue = getCacheValue(x, y, z);
 
@@ -67,30 +67,42 @@ public class OcclusionCullingInstance {
                         }
 
                         if (cachedValue != 0) {
-                            // cached
-                            continue;
+                            // was checked and it wasn't visible
+                            skipList.set(id);
                         }
-
-                        // no cached value
+                        id++;
+                    }
+                }
+            }
+            
+            // since the cache wasn't helpfull 
+            id = 0;
+            for (int x = minX; x < maxX; x++) {
+                onFaceEdge[0] = x == minX;
+                onFaceEdge[1] = x == maxX - 1;
+                for (int y = minY; y < maxY; y++) {
+                    onFaceEdge[2] = y == minY;
+                    onFaceEdge[3] = y == maxY - 1;
+                    for (int z = minZ; z < maxZ; z++) {
                         onFaceEdge[4] = z == minZ;
                         onFaceEdge[5] = z == maxZ - 1;
+                        if(skipList.get(id)) { // was checked and it wasn't visible
+                            continue;
+                        }
+                        
                         if ((onFaceEdge[0] && relX == Relative.POSITIVE)
                             || (onFaceEdge[1] && relX == Relative.NEGATIVE)
                             || (onFaceEdge[2] && relY == Relative.POSITIVE)
                             || (onFaceEdge[3] && relY == Relative.NEGATIVE)
                             || (onFaceEdge[4] && relZ == Relative.POSITIVE)
                             || (onFaceEdge[5] && relZ == Relative.NEGATIVE)) {
-                            blocks[slot] = new Vec3d(x, y, z);
-                            faceEdgeData[slot] = Arrays.copyOf(onFaceEdge, 6);
-                            slot++;
+                            targetPos.set(x, y, z);
+                            if (isVoxelVisible(viewerPosition, targetPos, onFaceEdge)) {
+                                return true;
+                            }
                         }
+                        id++;
                     }
-                }
-            }
-
-            for (int i = 0; i < slot; i++) {
-                if (isVoxelVisible(viewerPosition, blocks[i], faceEdgeData[i])) {
-                    return true;
                 }
             }
 
@@ -117,6 +129,7 @@ public class OcclusionCullingInstance {
                                    boolean[] faceEdgeData) {
         int targetSize = 0;
 
+        // this is basically for documentation
         // boolean onMinX = faceEdgeData[0];
         // boolean onMaxX = faceEdgeData[1];
         // boolean onMinY = faceEdgeData[2];
@@ -125,33 +138,32 @@ public class OcclusionCullingInstance {
         // boolean onMaxZ = faceEdgeData[5];
 
         // main points for all faces
-        position = position.add(0.05, 0.05, 0.05); // TODO: this is ugly
         if (faceEdgeData[0] || faceEdgeData[4] || faceEdgeData[2]) {
-            targetPoints[targetSize++] = position;
+            targetPoints[targetSize++].setAdd(position, 0.05, 0.05, 0.05);
         }
         if (faceEdgeData[1]) {
-            targetPoints[targetSize++] = position.add(0.90, 0, 0);
+            targetPoints[targetSize++].setAdd(position, 0.95, 0.05, 0.05);
         }
         if (faceEdgeData[3]) {
-            targetPoints[targetSize++] = position.add(0, 0.90, 0);
+            targetPoints[targetSize++].setAdd(position, 0.05, 0.95, 0.05);
         }
         if (faceEdgeData[5]) {
-            targetPoints[targetSize++] = position.add(0, 0, 0.90);
+            targetPoints[targetSize++].setAdd(position, 0.05, 0.05, 0.95);
         }
         // Extra corner points
         if ((faceEdgeData[4] && faceEdgeData[1] && faceEdgeData[3])
             || (faceEdgeData[1] && faceEdgeData[3])) {
-            targetPoints[targetSize++] = position.add(0.90, 0.90, 0);
+            targetPoints[targetSize++].setAdd(position, 0.95, 0.95, 0.05);
         }
         if ((faceEdgeData[0] && faceEdgeData[5] && faceEdgeData[3])
             || (faceEdgeData[5] && faceEdgeData[3])) {
-            targetPoints[targetSize++] = position.add(0, 0.90, 0.90);
+            targetPoints[targetSize++].setAdd(position, 0.05, 0.95, 0.95);
         }
         if (faceEdgeData[5] && faceEdgeData[1]) {
-            targetPoints[targetSize++] = position.add(0.90, 0, 0.90);
+            targetPoints[targetSize++].setAdd(position, 0.95, 0.05, 0.95);
         }
         if (faceEdgeData[1] && faceEdgeData[3] && faceEdgeData[5]) {
-            targetPoints[targetSize++] = position.add(0.90, 0.90, 0.90);
+            targetPoints[targetSize++].setAdd(position, 0.95, 0.95, 0.95);
         }
 
         provider.checkingPosition(targetPoints, targetSize, viewerPosition);
