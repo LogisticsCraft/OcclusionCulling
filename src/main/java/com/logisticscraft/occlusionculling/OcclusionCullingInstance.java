@@ -114,17 +114,6 @@ public class OcclusionCullingInstance {
         return true;
     }
 
-    // -1 = invalid location, 0 = not checked yet, 1 = visible, 2 = occluding
-    private int getCacheValue(int x, int y, int z) {
-        if (Math.abs(x) > reach - 2 || Math.abs(y) > reach - 2
-            || Math.abs(z) > reach - 2) {
-            return -1;
-        }
-
-        // check if target is already known
-        return cache.getState(x + reach, y + reach, z + reach);
-    }
-
     private boolean isVoxelVisible(Vec3d viewerPosition, Vec3d position,
                                    boolean[] faceEdgeData) {
         int targetSize = 0;
@@ -304,15 +293,15 @@ public class OcclusionCullingInstance {
                             double distInZ, int n, int x_inc, int y_inc,
                             int z_inc, double t_next_y, double t_next_x,
                             double t_next_z) {
+        int startX = MathUtilities.fastFloor(start.x);
+        int startY = MathUtilities.fastFloor(start.y);
+        int startZ = MathUtilities.fastFloor(start.z);
         // iterate through all intersecting cells (n times)
         for (; n > 1; n--) { // n-1 times because we don't want to check the last block
             // towards - where from
-            int curToStartX = MathUtilities.fastFloor((currentX - start.x)
-                + reach);
-            int curToStartY = MathUtilities.fastFloor((currentY - start.y)
-                + reach);
-            int curToStartZ = MathUtilities.fastFloor((currentZ - start.z)
-                + reach);
+            int curToStartX = MathUtilities.fastFloor(currentX) - startX + reach;
+            int curToStartY = MathUtilities.fastFloor(currentY) - startY + reach;
+            int curToStartZ = MathUtilities.fastFloor(currentZ) - startZ + reach;
 
             // get cached value, 0 means uncached (default)
             int cVal = cache.getState(curToStartX, curToStartY, curToStartZ);
@@ -355,6 +344,18 @@ public class OcclusionCullingInstance {
         return true;
     }
 
+    // -1 = invalid location, 0 = not checked yet, 1 = visible, 2 = occluding
+    private int getCacheValue(int x, int y, int z) {
+        if (Math.abs(x) > reach - 2 || Math.abs(y) > reach - 2
+            || Math.abs(z) > reach - 2) {
+            return -1;
+        }
+
+        // check if target is already known
+        return cache.getState(x + reach, y + reach, z + reach);
+    }
+
+    
     private void cacheResult(Vec3d vector, boolean result) {
         int cx = MathUtilities.fastFloor(vector.x + reach);
         int cy = MathUtilities.fastFloor(vector.y + reach);
