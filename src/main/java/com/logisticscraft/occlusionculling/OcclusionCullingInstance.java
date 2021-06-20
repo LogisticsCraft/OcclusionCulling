@@ -50,16 +50,17 @@ public class OcclusionCullingInstance {
             int minZ = MathUtilities.floor(aabbMin.z
                  - aabbExpansion);
 
-            Relative relX = Relative.from(minX, maxX, viewerPosition.x);
-            Relative relY = Relative.from(minY, maxY, viewerPosition.y);
-            Relative relZ = Relative.from(minZ, maxZ, viewerPosition.z);
+            cameraPos[0] = MathUtilities.floor(viewerPosition.x);
+            cameraPos[1] = MathUtilities.floor(viewerPosition.y);
+            cameraPos[2] = MathUtilities.floor(viewerPosition.z);
+            
+            Relative relX = Relative.from(minX, maxX, cameraPos[0]);
+            Relative relY = Relative.from(minY, maxY, cameraPos[1]);
+            Relative relZ = Relative.from(minZ, maxZ, cameraPos[2]);
             
             if(relX == Relative.INSIDE && relY == Relative.INSIDE && relZ == Relative.INSIDE) {
                 return true; // We are inside of the AABB, don't cull
             }
-            cameraPos[0] = MathUtilities.floor(viewerPosition.x);
-            cameraPos[1] = MathUtilities.floor(viewerPosition.y);
-            cameraPos[2] = MathUtilities.floor(viewerPosition.z);
             
             skipList.clear();
 
@@ -391,7 +392,7 @@ public class OcclusionCullingInstance {
     private enum Relative {
         INSIDE, POSITIVE, NEGATIVE;
 
-        public static Relative from(int min, int max, double pos) {
+        public static Relative from(int min, int max, int pos) {
             if (max > pos && min > pos) {
                 return POSITIVE;
             } else if (min < pos && max < pos) {

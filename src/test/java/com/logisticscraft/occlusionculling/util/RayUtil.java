@@ -23,7 +23,7 @@ public class RayUtil {
             }
         }
         if(singleBlock)
-            assertEquals(access.get(access.size()-1), new DataAccess(AccessType.CACHEWRITE, block.x-Math.floor(camera.x), block.y-Math.floor(camera.y), block.z-Math.floor(camera.z)));
+            assertEquals(new DataAccess(AccessType.CACHEWRITE, block.x-Math.floor(camera.x), block.y-Math.floor(camera.y), block.z-Math.floor(camera.z)), access.get(access.size()-1));
         return true;
     }
     

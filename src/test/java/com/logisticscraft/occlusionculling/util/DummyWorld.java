@@ -32,7 +32,7 @@ public class DummyWorld implements DataProvider {
     }
 
     public Vec3d getBlockMax(Vec3d pos) {
-        return new Vec3d(pos.getX()+1d, pos.getY()+1d, pos.getZ()+1d);
+        return new Vec3d(pos.getX()+0.9d, pos.getY()+0.9d, pos.getZ()+0.9d);
     }
     
 }
