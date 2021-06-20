@@ -37,11 +37,11 @@ public class OcclusionCullingInstance {
 
     public boolean isAABBVisible(Vec3d aabbMin, Vec3d aabbMax, Vec3d viewerPosition) {
         try {
-            int maxX = MathUtilities.ceil(aabbMax.x
+            int maxX = MathUtilities.floor(aabbMax.x
                  + aabbExpansion);
-            int maxY = MathUtilities.ceil(aabbMax.y
+            int maxY = MathUtilities.floor(aabbMax.y
                  + aabbExpansion);
-            int maxZ = MathUtilities.ceil(aabbMax.z
+            int maxZ = MathUtilities.floor(aabbMax.z
                  + aabbExpansion);
             int minX = MathUtilities.floor(aabbMin.x
                  - aabbExpansion);
@@ -57,7 +57,6 @@ public class OcclusionCullingInstance {
             if(relX == Relative.INSIDE && relY == Relative.INSIDE && relZ == Relative.INSIDE) {
                 return true; // We are inside of the AABB, don't cull
             }
-            
             cameraPos[0] = MathUtilities.floor(viewerPosition.x);
             cameraPos[1] = MathUtilities.floor(viewerPosition.y);
             cameraPos[2] = MathUtilities.floor(viewerPosition.z);
@@ -66,10 +65,10 @@ public class OcclusionCullingInstance {
 
             // Just check the cache first
             int id = 0;
-            for (int x = minX; x < maxX; x++) {
-                for (int y = minY; y < maxY; y++) {
-                    for (int z = minZ; z < maxZ; z++) {
-                        int cachedValue = 0;//getCacheValue(x, y, z);
+            for (int x = minX; x <= maxX; x++) {
+                for (int y = minY; y <= maxY; y++) {
+                    for (int z = minZ; z <= maxZ; z++) {
+                        int cachedValue = getCacheValue(x, y, z);
 
                         if (cachedValue == 1) {
                             // non-occluding
@@ -87,15 +86,15 @@ public class OcclusionCullingInstance {
             
             // since the cache wasn't helpfull 
             id = 0;
-            for (int x = minX; x < maxX; x++) {
+            for (int x = minX; x <= maxX; x++) {
                 onFaceEdge[0] = x == minX;
-                onFaceEdge[1] = x == maxX - 1;
-                for (int y = minY; y < maxY; y++) {
+                onFaceEdge[1] = x == maxX;
+                for (int y = minY; y <= maxY; y++) {
                     onFaceEdge[2] = y == minY;
-                    onFaceEdge[3] = y == maxY - 1;
-                    for (int z = minZ; z < maxZ; z++) {
+                    onFaceEdge[3] = y == maxY;
+                    for (int z = minZ; z <= maxZ; z++) {
                         onFaceEdge[4] = z == minZ;
-                        onFaceEdge[5] = z == maxZ - 1;
+                        onFaceEdge[5] = z == maxZ;
                         if(skipList.get(id)) { // was checked and it wasn't visible
                             continue;
                         }
@@ -293,7 +292,7 @@ public class OcclusionCullingInstance {
                 return true;
             }
         }
-        //cacheResult(start, targets[0], false);
+        //cacheResult(targets[0], false); creates invalid cache entries
         return false;
     }
 
