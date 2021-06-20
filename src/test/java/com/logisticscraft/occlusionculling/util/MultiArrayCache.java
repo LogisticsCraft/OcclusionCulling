@@ -1,6 +1,9 @@
-package com.logisticscraft.occlusionculling.cache;
+package com.logisticscraft.occlusionculling.util;
 
 import java.util.Arrays;
+
+import com.logisticscraft.occlusionculling.cache.OcclusionCache;
+import com.logisticscraft.occlusionculling.util.DataAccess.AccessType;
 
 /**
  * Slower 3d array cache that is mostly for testing because it's slower compared
@@ -11,13 +14,17 @@ import java.util.Arrays;
  */
 public class MultiArrayCache implements OcclusionCache {
 
+    private final int reach;
     private final int reachX2;
     private final byte[][][] cache;
     private int lastX, lastY, lastZ;
+    private DummyWorld world;
 
-    public MultiArrayCache(int reach) {
+    public MultiArrayCache(int reach, DummyWorld world) {
+        this.reach = reach;
         this.reachX2 = reach * 2;
         this.cache = new byte[reachX2][reachX2][reachX2];
+        this.world = world;
     }
 
     @Override
@@ -32,11 +39,13 @@ public class MultiArrayCache implements OcclusionCache {
     @Override
     public void setVisible(int x, int y, int z) {
         cache[x][y][z] = 1;
+        world.blockChecks.add(new DataAccess(AccessType.CACHEWRITE, x-reach, y-reach, z-reach));
     }
 
     @Override
     public void setHidden(int x, int y, int z) {
         cache[x][y][z] = 2;
+        world.blockChecks.add(new DataAccess(AccessType.CACHEWRITE, x-reach, y-reach, z-reach));
     }
 
     @Override
@@ -44,17 +53,20 @@ public class MultiArrayCache implements OcclusionCache {
         lastX = x;
         lastY = y;
         lastZ = z;
+        world.blockChecks.add(new DataAccess(AccessType.CACHEGET, x-reach, y-reach, z-reach));
         return cache[x][y][z];
     }
 
     @Override
     public void setLastVisible() {
         cache[lastX][lastY][lastZ] = 1;
+        world.blockChecks.add(new DataAccess(AccessType.CACHEWRITE, lastX-reach, lastY-reach, lastZ-reach));
     }
 
     @Override
     public void setLastHidden() {
         cache[lastX][lastY][lastZ] = 2;
+        world.blockChecks.add(new DataAccess(AccessType.CACHEWRITE, lastX-reach, lastY-reach, lastZ-reach));
     }
 
 }
