@@ -10,6 +10,7 @@ import com.logisticscraft.occlusionculling.util.Vec3d;
 public class OcclusionCullingInstance {
 
     private final int reach;
+    private final double aabbExpansion;
     private final DataProvider provider;
     private final OcclusionCache cache;
     
@@ -20,9 +21,14 @@ public class OcclusionCullingInstance {
     private final Vec3d targetPos = new Vec3d(0, 0, 0);
 
     public OcclusionCullingInstance(int maxDistance, DataProvider provider) {
+        this(maxDistance, provider, new ArrayOcclusionCache(maxDistance), 0.5);
+    }
+    
+    public OcclusionCullingInstance(int maxDistance, DataProvider provider, OcclusionCache cache, double aabbExpansion) {
         this.reach = maxDistance;
         this.provider = provider;
-        this.cache = new ArrayOcclusionCache(reach);
+        this.cache = cache;
+        this.aabbExpansion = aabbExpansion;
         for(int i = 0; i < targetPoints.length; i++) {
             targetPoints[i] = new Vec3d(0, 0, 0);
         }
@@ -31,27 +37,31 @@ public class OcclusionCullingInstance {
     public boolean isAABBVisible(Vec3d aabbMin, Vec3d aabbMax, Vec3d viewerPosition) {
         try {
             int maxX = MathUtilities.ceil(aabbMax.x
-                - ((int) viewerPosition.x) + 0.5);
+                - MathUtilities.floor(viewerPosition.x) + aabbExpansion);
             int maxY = MathUtilities.ceil(aabbMax.y
-                - ((int) viewerPosition.y) + 0.5);
+                - MathUtilities.floor(viewerPosition.y) + aabbExpansion);
             int maxZ = MathUtilities.ceil(aabbMax.z
-                - ((int) viewerPosition.z) + 0.5);
+                - MathUtilities.floor(viewerPosition.z) + aabbExpansion);
             int minX = MathUtilities.fastFloor(aabbMin.x
-                - ((int) viewerPosition.x) - 0.5);
+                - MathUtilities.floor(viewerPosition.x) - aabbExpansion);
             int minY = MathUtilities.fastFloor(aabbMin.y
-                - ((int) viewerPosition.y) - 0.5);
+                - MathUtilities.floor(viewerPosition.y) - aabbExpansion);
             int minZ = MathUtilities.fastFloor(aabbMin.z
-                - ((int) viewerPosition.z) - 0.5);
+                - MathUtilities.floor(viewerPosition.z) - aabbExpansion);
 
-            if (minX <= 0 && maxX > 0 && minY <= 0 && maxY >= 0 && minZ < 0
+            if (minX <= 0 && maxX >= 0 && minY <= 0 && maxY >= 0 && minZ <= 0
                 && maxZ >= 0) {
                 return true; // We are inside of the AABB, don't cull
             }
 
             Relative relX = Relative.from(minX, maxX);
             Relative relY = Relative.from(minY, maxY);
-            Relative relZ = Relative.from(minZ + 1, maxZ + 1);
-
+            Relative relZ = Relative.from(minZ, maxZ);
+            
+            if(relX == Relative.INSIDE && relY == Relative.INSIDE && relZ == Relative.INSIDE) {
+                System.out.println("Invalid data");
+            }
+            
             skipList.clear();
 
             // Just check the cache first
@@ -377,7 +387,7 @@ public class OcclusionCullingInstance {
         public static Relative from(int min, int max) {
             if (max > 0 && min > 0) {
                 return POSITIVE;
-            } else if (min < 0 && max <= 0) {
+            } else if (min < 0 && max < 0) {
                 return NEGATIVE;
             }
             return INSIDE;
