@@ -138,33 +138,33 @@ public class OcclusionCullingInstance {
         // boolean onMaxZ = faceEdgeData[5];
 
         // main points for all faces
-        //if (faceEdgeData[0] || faceEdgeData[4] || faceEdgeData[2]) {
+        if (faceEdgeData[0] || faceEdgeData[4] || faceEdgeData[2]) {
             targetPoints[targetSize++].setAdd(position, 0.05, 0.05, 0.05);
-        //}
-        //if (faceEdgeData[1]) {
+        }
+        if (faceEdgeData[1]) {
             targetPoints[targetSize++].setAdd(position, 0.95, 0.05, 0.05);
-        //}
-        //if (faceEdgeData[3]) {
+        }
+        if (faceEdgeData[3]) {
             targetPoints[targetSize++].setAdd(position, 0.05, 0.95, 0.05);
-        //}
-        //if (faceEdgeData[5]) {
+        }
+        if (faceEdgeData[5]) {
             targetPoints[targetSize++].setAdd(position, 0.05, 0.05, 0.95);
-        //}
+        }
         // Extra corner points
-        //if ((faceEdgeData[4] && faceEdgeData[1] && faceEdgeData[3])
-        //    || (faceEdgeData[1] && faceEdgeData[3])) {
+        if ((faceEdgeData[4] && faceEdgeData[1] && faceEdgeData[3])
+            || (faceEdgeData[1] && faceEdgeData[3])) {
             targetPoints[targetSize++].setAdd(position, 0.95, 0.95, 0.05);
-        //}
-        //if ((faceEdgeData[0] && faceEdgeData[5] && faceEdgeData[3])
-        //    || (faceEdgeData[5] && faceEdgeData[3])) {
+        }
+        if ((faceEdgeData[0] && faceEdgeData[5] && faceEdgeData[3])
+            || (faceEdgeData[5] && faceEdgeData[3])) {
             targetPoints[targetSize++].setAdd(position, 0.05, 0.95, 0.95);
-        //}
-        // (faceEdgeData[5] && faceEdgeData[1]) {
+        }
+        if(faceEdgeData[5] && faceEdgeData[1]) {
             targetPoints[targetSize++].setAdd(position, 0.95, 0.05, 0.95);
-        //}
-        //if (faceEdgeData[1] && faceEdgeData[3] && faceEdgeData[5]) {
+        }
+        if (faceEdgeData[1] && faceEdgeData[3] && faceEdgeData[5]) {
             targetPoints[targetSize++].setAdd(position, 0.95, 0.95, 0.95);
-        //}
+        }
 
         //provider.checkingPosition(targetPoints, targetSize, new Vec3d(0, 0, 0));
 
