@@ -97,6 +97,7 @@ public class OcclusionCullingInstance {
                         onFaceEdge[4] = z == minZ;
                         onFaceEdge[5] = z == maxZ;
                         if(skipList.get(id)) { // was checked and it wasn't visible
+                            id++;
                             continue;
                         }
                         
