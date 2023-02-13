@@ -1,5 +1,6 @@
 package com.logisticscraft.occlusionculling;
 
+import java.util.Arrays;
 import java.util.BitSet;
 
 import com.logisticscraft.occlusionculling.cache.ArrayOcclusionCache;
@@ -9,6 +10,13 @@ import com.logisticscraft.occlusionculling.util.Vec3d;
 
 public class OcclusionCullingInstance {
 
+    private static final int ON_MIN_X = 0x01;
+    private static final int ON_MAX_X = 0x02;
+    private static final int ON_MIN_Y = 0x04;
+    private static final int ON_MAX_Y = 0x08;
+    private static final int ON_MIN_Z = 0x10;
+    private static final int ON_MAX_Z = 0x20;
+    
     private final int reach;
     private final double aabbExpansion;
     private final DataProvider provider;
@@ -16,10 +24,11 @@ public class OcclusionCullingInstance {
     
     // Reused allocated data structures
     private final BitSet skipList = new BitSet(); // Grows bigger in case some mod introduces giant hitboxes
-    private final boolean[] onFaceEdge = new boolean[6];
-    private final Vec3d[] targetPoints = new Vec3d[8];
+    private final Vec3d[] targetPoints = new Vec3d[15];
     private final Vec3d targetPos = new Vec3d(0, 0, 0);
     private final int[] cameraPos = new int[3];
+    private final boolean[] dotselectors = new boolean[14];
+
 
     public OcclusionCullingInstance(int maxDistance, DataProvider provider) {
         this(maxDistance, provider, new ArrayOcclusionCache(maxDistance), 0.5);
@@ -88,27 +97,34 @@ public class OcclusionCullingInstance {
             // since the cache wasn't helpfull 
             id = 0;
             for (int x = minX; x <= maxX; x++) {
-                onFaceEdge[0] = x == minX;
-                onFaceEdge[1] = x == maxX;
+                byte visibleOnFaceX = 0;
+                byte faceEdgeDataX = 0;
+                faceEdgeDataX |= (x == minX) ? ON_MIN_X : 0;
+                faceEdgeDataX |= (x == maxX) ? ON_MAX_X : 0;
+                visibleOnFaceX |= (x == minX && relX == Relative.POSITIVE) ? ON_MIN_X : 0;
+                visibleOnFaceX |= (x == maxX && relX == Relative.NEGATIVE) ? ON_MAX_X : 0; 
                 for (int y = minY; y <= maxY; y++) {
-                    onFaceEdge[2] = y == minY;
-                    onFaceEdge[3] = y == maxY;
+                    byte faceEdgeDataY = faceEdgeDataX;
+                    byte visibleOnFaceY = visibleOnFaceX;
+                    faceEdgeDataY |= (y == minY) ? ON_MIN_Y : 0;
+                    faceEdgeDataY |= (y == maxY) ? ON_MAX_Y : 0;
+                    visibleOnFaceY |= (y == minY && relY == Relative.POSITIVE) ? ON_MIN_Y : 0;
+                    visibleOnFaceY |= (y == maxY && relY == Relative.NEGATIVE) ? ON_MAX_Y : 0;
                     for (int z = minZ; z <= maxZ; z++) {
-                        onFaceEdge[4] = z == minZ;
-                        onFaceEdge[5] = z == maxZ;
+                        byte faceEdgeData = faceEdgeDataY;
+                        byte visibleOnFace = visibleOnFaceY;
+                        faceEdgeData |= (z == minZ) ? ON_MIN_Z : 0;
+                        faceEdgeData |= (z == maxZ) ? ON_MAX_Z : 0;
+                        visibleOnFace |= (z == minZ && relZ == Relative.POSITIVE) ? ON_MIN_Z : 0;
+                        visibleOnFace |= (z == maxZ && relZ == Relative.NEGATIVE) ? ON_MAX_Z : 0;
                         if(skipList.get(id)) { // was checked and it wasn't visible
                             id++;
                             continue;
                         }
                         
-                        if ((onFaceEdge[0] && relX == Relative.POSITIVE)
-                            || (onFaceEdge[1] && relX == Relative.NEGATIVE)
-                            || (onFaceEdge[2] && relY == Relative.POSITIVE)
-                            || (onFaceEdge[3] && relY == Relative.NEGATIVE)
-                            || (onFaceEdge[4] && relZ == Relative.POSITIVE)
-                            || (onFaceEdge[5] && relZ == Relative.NEGATIVE)) {
+                        if (visibleOnFace != 0) {
                             targetPos.set(x, y, z);
-                            if (isVoxelVisible(viewerPosition, targetPos, onFaceEdge)) {
+                            if (isVoxelVisible(viewerPosition, targetPos, faceEdgeData, visibleOnFace)) {
                                 return true;
                             }
                         }
@@ -125,52 +141,89 @@ public class OcclusionCullingInstance {
         return true;
     }
 
-    private boolean isVoxelVisible(Vec3d viewerPosition, Vec3d position,
-                                   boolean[] faceEdgeData) {
+    /**
+     * @param viewerPosition
+     * @param position
+     * @param faceData contains rather this Block is on the outside for a given face
+     * @param visibleOnFace contains rather a face should be concidered
+     * @return
+     */
+    private boolean isVoxelVisible(Vec3d viewerPosition, Vec3d position, byte faceData, byte visibleOnFace) {
         int targetSize = 0;
+        Arrays.fill(dotselectors, false);
+        if((visibleOnFace & ON_MIN_X) == ON_MIN_X){
+            dotselectors[0] = true;
+            if((faceData & ~ON_MIN_X) != 0) {
+                dotselectors[1] = true;
+                dotselectors[4] = true;
+                dotselectors[5] = true;
+            }
+            dotselectors[8] = true;
+        }
+        if((visibleOnFace & ON_MIN_Y) == ON_MIN_Y){
+            dotselectors[0] = true;
+            if((faceData & ~ON_MIN_Y) != 0) {
+                dotselectors[3] = true;
+                dotselectors[4] = true;
+                dotselectors[7] = true;
+            }
+            dotselectors[9] = true;
+        }
+        if((visibleOnFace & ON_MIN_Z) == ON_MIN_Z){
+            dotselectors[0] = true;
+            if((faceData & ~ON_MIN_Z) != 0) {
+                dotselectors[1] = true;
+                dotselectors[4] = true;
+                dotselectors[5] = true;
+            }
+            dotselectors[10] = true;
+        }
+        if((visibleOnFace & ON_MAX_X) == ON_MAX_X){
+            dotselectors[4] = true;
+            if((faceData & ~ON_MAX_X) != 0) {
+                dotselectors[5] = true;
+                dotselectors[6] = true;
+                dotselectors[7] = true;
+            }
+            dotselectors[11] = true;
+        }
+        if((visibleOnFace & ON_MAX_Y) == ON_MAX_Y){
+            dotselectors[1] = true;
+            if((faceData & ~ON_MAX_Y) != 0) {
+                dotselectors[2] = true;
+                dotselectors[5] = true;
+                dotselectors[6] = true;
+            }
+            dotselectors[12] = true;
+        }
+        if((visibleOnFace & ON_MAX_Z) == ON_MAX_Z){
+            dotselectors[2] = true;
+            if((faceData & ~ON_MAX_Z) != 0) {
+                dotselectors[3] = true;
+                dotselectors[6] = true;
+                dotselectors[7] = true;
+            }
+            dotselectors[13] = true;
+        }
 
-        // this is basically for documentation
-        // boolean onMinX = faceEdgeData[0];
-        // boolean onMaxX = faceEdgeData[1];
-        // boolean onMinY = faceEdgeData[2];
-        // boolean onMaxY = faceEdgeData[3];
-        // boolean onMinZ = faceEdgeData[4];
-        // boolean onMaxZ = faceEdgeData[5];
-
-        // main points for all faces
-        if (faceEdgeData[0] || faceEdgeData[4] || faceEdgeData[2]) {
-            targetPoints[targetSize++].setAdd(position, 0.05, 0.05, 0.05);
-        }
-        if (faceEdgeData[1]) {
-            targetPoints[targetSize++].setAdd(position, 0.95, 0.05, 0.05);
-        }
-        if (faceEdgeData[3]) {
-            targetPoints[targetSize++].setAdd(position, 0.05, 0.95, 0.05);
-        }
-        if (faceEdgeData[5]) {
-            targetPoints[targetSize++].setAdd(position, 0.05, 0.05, 0.95);
-        }
-        // Extra corner points
-        if ((faceEdgeData[4] && faceEdgeData[1] && faceEdgeData[3])
-            || (faceEdgeData[1] && faceEdgeData[3])) {
-            targetPoints[targetSize++].setAdd(position, 0.95, 0.95, 0.05);
-        }
-        if ((faceEdgeData[0] && faceEdgeData[5] && faceEdgeData[3])
-            || (faceEdgeData[5] && faceEdgeData[3])) {
-            targetPoints[targetSize++].setAdd(position, 0.05, 0.95, 0.95);
-        }
-        if(faceEdgeData[5] && faceEdgeData[1]) {
-            targetPoints[targetSize++].setAdd(position, 0.95, 0.05, 0.95);
-        }
-        if (faceEdgeData[1] && faceEdgeData[3] && faceEdgeData[5]) {
-            targetPoints[targetSize++].setAdd(position, 0.95, 0.95, 0.95);
-        }
-
-        //provider.checkingPosition(targetPoints, targetSize, new Vec3d(0, 0, 0));
+        if (dotselectors[0])targetPoints[targetSize++].setAdd(position, 0.05, 0.05, 0.05);
+        if (dotselectors[1])targetPoints[targetSize++].setAdd(position, 0.05, 0.95, 0.05);
+        if (dotselectors[2])targetPoints[targetSize++].setAdd(position, 0.05, 0.95, 0.95);
+        if (dotselectors[3])targetPoints[targetSize++].setAdd(position, 0.05, 0.05, 0.95);
+        if (dotselectors[4])targetPoints[targetSize++].setAdd(position, 0.95, 0.05, 0.05);
+        if (dotselectors[5])targetPoints[targetSize++].setAdd(position, 0.95, 0.95, 0.05);
+        if (dotselectors[6])targetPoints[targetSize++].setAdd(position, 0.95, 0.95, 0.95);
+        if (dotselectors[7])targetPoints[targetSize++].setAdd(position, 0.95, 0.05, 0.95);
+        // middle points
+        if (dotselectors[8])targetPoints[targetSize++].setAdd(position, 0.05, 0.5, 0.5);
+        if (dotselectors[9])targetPoints[targetSize++].setAdd(position, 0.5, 0.05, 0.5);
+        if (dotselectors[10])targetPoints[targetSize++].setAdd(position, 0.5, 0.5, 0.05);
+        if (dotselectors[11])targetPoints[targetSize++].setAdd(position, 0.95, 0.5, 0.5);
+        if (dotselectors[12])targetPoints[targetSize++].setAdd(position, 0.5, 0.95, 0.5);
+        if (dotselectors[13])targetPoints[targetSize++].setAdd(position, 0.5, 0.5, 0.95);
 
         return isVisible(viewerPosition, targetPoints, targetSize);
     }
-
 
     /**
      * returns the grid cells that intersect with this Vec3d<br>
@@ -294,7 +347,8 @@ public class OcclusionCullingInstance {
                 return true;
             }
         }
-        cacheResult(targets[0], false);
+        // caching here causes issues, since that block wasnt actually checked itself
+//        cacheResult(targets[0], false);
         return false;
     }
 
