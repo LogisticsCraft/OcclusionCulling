@@ -36,6 +36,21 @@ public class Vec3d {
         this.z = vec.z + z;
     }
     
+    public Vec3d div(Vec3d rayDir) {
+        this.x /= rayDir.x;
+        this.z /= rayDir.z;
+        this.y /= rayDir.y;
+        return this;
+    }
+
+    public Vec3d normalize() {
+        double mag = Math.sqrt(x*x+y*y+z*z);
+        this.x /= mag;
+        this.y /= mag;
+        this.z /= mag;
+        return this;
+    }
+    
     public boolean equals(Object other) {
         if (this == other) {
             return true;

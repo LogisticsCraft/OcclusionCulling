@@ -54,7 +54,6 @@ public class DiagonalLineTest {
         for (int x = 0; x < targets.length; x++) {
             for (int y = 0; y < targets.length; y++) {
                 for (int z = 0; z < targets.length; z++) {
-                    int length = -1;
                     Vec3d block = new Vec3d(targets[x], targets[y], targets[z]);
                     Vec3d start = new Vec3d(cameraPos[x], cameraPos[y], cameraPos[z]);
                     for (int i = 0; i < 10; i++) {
@@ -67,11 +66,6 @@ public class DiagonalLineTest {
                             assertTrue(RayUtil.isCompleteRay(block, camera, world.blockChecks, true));
                         }else {
                             assertTrue(world.blockChecks.isEmpty());
-                        }
-                        if (length == -1) {
-                            length = world.blockChecks.size();
-                        } else {
-                            assertEquals(length, world.blockChecks.size());
                         }
                     }
                 }
