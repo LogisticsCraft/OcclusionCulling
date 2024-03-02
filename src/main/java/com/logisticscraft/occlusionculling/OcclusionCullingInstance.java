@@ -30,6 +30,7 @@ public class OcclusionCullingInstance {
     private final boolean[] dotselectors = new boolean[14];
     private boolean allowRayChecks = false;
     private final int[] lastHitBlock = new int[3];
+    private boolean allowWallClipping = false;
 
 
     public OcclusionCullingInstance(int maxDistance, DataProvider provider) {
@@ -393,6 +394,7 @@ public class OcclusionCullingInstance {
                             double distInZ, int n, int x_inc, int y_inc,
                             int z_inc, double t_next_y, double t_next_x,
                             double t_next_z) {
+        allowWallClipping = true; // initially allow rays to go through walls till they are on the outside
         // iterate through all intersecting cells (n times)
         for (; n > 1; n--) { // n-1 times because we don't want to check the last block
             // towards - where from
@@ -401,7 +403,7 @@ public class OcclusionCullingInstance {
             // get cached value, 0 means uncached (default)
             int cVal = getCacheValue(currentX, currentY, currentZ);
 
-            if (cVal == 2) {
+            if (cVal == 2 && !allowWallClipping) {
                 // block cached as occluding, stop ray
                 lastHitBlock[0] = currentX;
                 lastHitBlock[1] = currentY;
@@ -418,15 +420,25 @@ public class OcclusionCullingInstance {
                 }
 
                 if (provider.isOpaqueFullCube(currentX, currentY, currentZ)) {
-                    cache.setLastHidden();
-                    lastHitBlock[0] = currentX;
-                    lastHitBlock[1] = currentY;
-                    lastHitBlock[2] = currentZ;
-                    return false;
+                    if (!allowWallClipping) {
+                        cache.setLastHidden();
+                        lastHitBlock[0] = currentX;
+                        lastHitBlock[1] = currentY;
+                        lastHitBlock[2] = currentZ;
+                        return false;
+                    }
+                } else {
+                    // outside of wall, now clipping is not allowed
+                    allowWallClipping = false;
+                    cache.setLastVisible();
                 }
-
-                cache.setLastVisible();
             }
+            
+            if(cVal == 1) {
+                // outside of wall, now clipping is not allowed
+                allowWallClipping = false;
+            }
+
 
             if (t_next_y < t_next_x && t_next_y < t_next_z) { // next cell is upwards/downwards because the distance to
                 // the next vertical
